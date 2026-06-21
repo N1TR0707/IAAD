@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files (rahasia, jangan di-commit)
+.env
+backend/.env
+frontend/.env
+frontend/.env.production
+
+# Database (data lokal/server)
+*.sqlite
+database/*.sqlite
+backend/database/*.sqlite
+
+# Uploads (gambar produk, hanya di server)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build output
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
