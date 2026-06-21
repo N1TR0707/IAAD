@@ -92,12 +92,13 @@ const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
-    
-    // Sync database models (development only)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false }); // set true sekali saat ada perubahan skema
-      console.log('✅ Database models synced');
-    }
+
+    // Sync database models. alter:false hanya membuat tabel yang belum ada
+    // (aman untuk produksi, tidak mengubah/menghapus data yang sudah ada).
+    // Set DB_ALTER=true sekali bila ada perubahan skema kolom.
+    const alterSchema = process.env.DB_ALTER === 'true';
+    await sequelize.sync({ alter: alterSchema });
+    console.log('✅ Database models synced');
 
     // Seed data awal: akun pemilik + setting toko
     await seedInitialData();
