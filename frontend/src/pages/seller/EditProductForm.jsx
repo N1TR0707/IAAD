@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { STOCK_READY, isReady } from '../../utils/format';
+import { STOCK_READY, isReady, imageUrl } from '../../utils/format';
+import toast from 'react-hot-toast';
+import productService from '../../services/productService';
 
 // Form edit produk - tampil sebagai modal overlay, terisi data lama
 const EditProductForm = ({ product, onSubmit, onClose, loading }) => {
@@ -13,20 +15,82 @@ const EditProductForm = ({ product, onSubmit, onClose, loading }) => {
     description: product.description || '',
     is_featured: !!product.is_featured
   });
-  const [image, setImage] = useState(null);
+  
+  // Handle existing images (from database)
+  const [existingImages, setExistingImages] = useState(product.images || []);
+  
+  // Handle new images to be uploaded
+  const [newImages, setNewImages] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
 
-  const handleSubmit = (e) => {
+  const handleDeleteExisting = (index) => {
+    setExistingImages(existingImages.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddNewImages = (e) => {
+    const files = Array.from(e.target.files);
+    const totalImages = existingImages.length + newImages.length + files.length;
+    
+    if (totalImages > 5) {
+      toast.error(`Maksimal 5 gambar total. Anda sudah punya ${existingImages.length + newImages.length} gambar.`);
+      return;
+    }
+    
+    setNewImages([...newImages, ...files]);
+    
+    const previews = files.map(file => URL.createObjectURL(file));
+    setNewImagePreviews([...newImagePreviews, ...previews]);
+  };
+
+  const removeNewPreview = (index) => {
+    setNewImages(newImages.filter((_, idx) => idx !== index));
+    setNewImagePreviews(newImagePreviews.filter((_, idx) => idx !== index));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const data = new FormData();
-    data.append('name', form.name);
-    data.append('price', form.price);
-    data.append('price_before', form.price_before || '');
-    data.append('stock', form.stock || 0);
-    data.append('category', form.category);
-    data.append('description', form.description);
-    data.append('is_featured', form.is_featured);
-    if (image) data.append('image', image);
-    onSubmit(product.id, data);
+    
+    try {
+      // Step 1: Delete removed images from backend
+      const originalImages = product.images || [];
+      const deletedIndices = [];
+      
+      originalImages.forEach((img, idx) => {
+        if (!existingImages.includes(img)) {
+          deletedIndices.push(idx);
+        }
+      });
+      
+      // Delete images one by one
+      for (const index of deletedIndices) {
+        try {
+          await productService.deleteProductImage(product.id, index);
+        } catch (err) {
+          console.error('Error deleting image:', err);
+          // Continue even if delete fails
+        }
+      }
+      
+      // Step 2: Prepare form data with new images
+      const data = new FormData();
+      data.append('name', form.name);
+      data.append('price', form.price);
+      data.append('price_before', form.price_before || '');
+      data.append('stock', form.stock || 0);
+      data.append('category', form.category);
+      data.append('description', form.description);
+      data.append('is_featured', form.is_featured);
+      
+      // Append new images
+      newImages.forEach(img => data.append('images', img));
+      
+      // Step 3: Submit update
+      onSubmit(product.id, data);
+      
+    } catch (error) {
+      console.error('Submit error:', error);
+      toast.error('Gagal menyimpan perubahan');
+    }
   };
 
   return (
@@ -84,13 +148,74 @@ const EditProductForm = ({ product, onSubmit, onClose, loading }) => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ganti Foto (opsional)</label>
-            <input
-              type="file" accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])}
-              className="w-full text-sm text-gray-600"
-            />
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Foto Produk <span className="text-gray-500 text-xs">(Maksimal 5 gambar)</span>
+            </label>
+            
+            {/* Existing images */}
+            {existingImages.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-2">Gambar saat ini:</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {existingImages.map((imgPath, idx) => (
+                    <div key={idx} className="relative aspect-square">
+                      <img 
+                        src={imageUrl(imgPath)} 
+                        alt={`Existing ${idx + 1}`}
+                        className="w-full h-full object-cover rounded border border-gray-200" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExisting(idx)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-md"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* New images preview */}
+            {newImagePreviews.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-2">Gambar baru akan ditambahkan:</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {newImagePreviews.map((preview, idx) => (
+                    <div key={idx} className="relative aspect-square">
+                      <img 
+                        src={preview} 
+                        alt={`New ${idx + 1}`}
+                        className="w-full h-full object-cover rounded border border-green-300" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewPreview(idx)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-md"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Add more images if under limit */}
+            {(existingImages.length + newImages.length) < 5 && (
+              <div>
+                <input
+                  type="file" accept="image/*" multiple
+                  onChange={handleAddNewImages}
+                  className="w-full text-sm text-gray-600"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Tersisa {5 - existingImages.length - newImages.length} slot gambar
+                </p>
+              </div>
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>

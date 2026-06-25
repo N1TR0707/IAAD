@@ -46,6 +46,12 @@ const productService = {
   deleteProduct: async (id) => {
     const response = await api.delete(`/products/${id}`);
     return response.data;
+  },
+
+  // Hapus gambar tertentu dari produk
+  deleteProductImage: async (productId, imageIndex) => {
+    const response = await api.delete(`/products/${productId}/images/${imageIndex}`);
+    return response.data;
   }
 };
 

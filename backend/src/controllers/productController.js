@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const { Product } = require('../models');
 const { slugify } = require('../utils/slug');
+const fs = require('fs');
+const path = require('path');
 
 // @desc    Tambah produk baru
 // @route   POST /api/products
@@ -25,7 +27,7 @@ const createProduct = async (req, res) => {
       stock: stock || 0,
       category,
       is_featured: is_featured === 'true' || is_featured === true,
-      image: req.file ? `/uploads/${req.file.filename}` : null
+      images: req.files ? req.files.map(f => `/uploads/${f.filename}`) : []
     });
 
     res.status(201).json({
@@ -187,7 +189,22 @@ const updateProduct = async (req, res) => {
     if (category !== undefined) product.category = category;
     if (is_active !== undefined) product.is_active = (is_active === 'true' || is_active === true);
     if (is_featured !== undefined) product.is_featured = (is_featured === 'true' || is_featured === true);
-    if (req.file) product.image = `/uploads/${req.file.filename}`;
+    
+    // Handle multiple images
+    if (req.files && req.files.length > 0) {
+      const existingImages = product.images || [];
+      const newImages = req.files.map(f => `/uploads/${f.filename}`);
+      const totalImages = [...existingImages, ...newImages];
+      
+      if (totalImages.length > 5) {
+        return res.status(400).json({
+          success: false,
+          message: `Maksimal 5 gambar per produk. Anda sudah punya ${existingImages.length} gambar.`
+        });
+      }
+      
+      product.images = totalImages;
+    }
 
     await product.save();
 
@@ -229,6 +246,61 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+// @desc    Hapus gambar tertentu dari produk
+// @route   DELETE /api/products/:id/images/:index
+// @access  Private (admin)
+const deleteProductImage = async (req, res) => {
+  try {
+    const { id, index } = req.params;
+    const imageIndex = parseInt(index);
+
+    const product = await Product.findByPk(id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    }
+
+    const images = product.images || [];
+
+    // Validasi index
+    if (imageIndex < 0 || imageIndex >= images.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Index gambar tidak valid'
+      });
+    }
+
+    // Ambil path gambar yang akan dihapus
+    const imagePath = images[imageIndex];
+    
+    // Hapus file dari disk (jika ada)
+    if (imagePath) {
+      const fullPath = path.join(__dirname, '..', '..', imagePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
+    // Hapus dari array
+    const newImages = images.filter((_, idx) => idx !== imageIndex);
+    product.images = newImages;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Gambar berhasil dihapus',
+      data: { product }
+    });
+  } catch (error) {
+    console.error('Delete product image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus gambar',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   getProducts,
@@ -236,5 +308,6 @@ module.exports = {
   getProductBySlug,
   getMyProducts,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  deleteProductImage
 };

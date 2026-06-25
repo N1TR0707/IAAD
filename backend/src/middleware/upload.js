@@ -39,4 +39,9 @@ const upload = multer({
   }
 });
 
+// Export default upload object for backward compatibility
 module.exports = upload;
+
+// Named exports for specific use cases
+module.exports.uploadSingle = upload.single('image');
+module.exports.uploadMultiple = upload.array('images', 5);

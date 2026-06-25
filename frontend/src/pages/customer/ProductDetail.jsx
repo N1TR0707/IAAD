@@ -3,6 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import productService from '../../services/productService';
 import settingService from '../../services/settingService';
 import { formatRupiah, imageUrl, telegramOrderLink, whatsappOrderLink, isReady, discountPercent } from '../../utils/format';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -43,7 +48,7 @@ const ProductDetail = () => {
     );
   }
 
-  const img = imageUrl(product.image);
+  const productImages = product.images || (product.image ? [product.image] : []);
   const tgUsername = store?.telegram_username;
   const tgLink = tgUsername ? telegramOrderLink(tgUsername, product) : null;
   const waNumber = store?.whatsapp;
@@ -80,13 +85,30 @@ const ProductDetail = () => {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-soft overflow-hidden grid grid-cols-1 md:grid-cols-2">
           {/* Gambar */}
           <div className="relative aspect-square bg-slate-50 overflow-hidden">
-            {img ? (
-              <img src={img} alt={product.name} className="w-full h-full object-cover" />
+            {productImages.length > 0 ? (
+              <Swiper
+                modules={[Navigation, Pagination]}
+                navigation
+                pagination={{ clickable: true }}
+                spaceBetween={0}
+                slidesPerView={1}
+                className="w-full h-full"
+              >
+                {productImages.map((imgPath, idx) => (
+                  <SwiperSlide key={idx}>
+                    <img
+                      src={imageUrl(imgPath)}
+                      alt={`${product.name} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-slate-200 text-8xl">📦</div>
             )}
             {!isReady(product.stock) && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
                 <span className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-full">SOLD OUT</span>
               </div>
             )}

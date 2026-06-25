@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom';
 import { formatRupiah, imageUrl, stockLabel, isReady, discountPercent } from '../../utils/format';
 
 const ProductCard = ({ product }) => {
-  const img = imageUrl(product.image);
+  // Support both new (images array) and old (image string) format
+  const firstImage = product.images?.[0] || product.image;
+  const img = imageUrl(firstImage);
   const ready = isReady(product.stock);
   const discount = discountPercent(product.price, product.price_before);
 

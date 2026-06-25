@@ -54,10 +54,20 @@ const Product = sequelize.define('Product', {
     type: DataTypes.STRING,
     allowNull: true
   },
-  image: {
-    type: DataTypes.STRING,
+  images: {
+    type: DataTypes.JSON,
     allowNull: true,
-    comment: 'Path gambar utama produk'
+    defaultValue: [],
+    comment: 'Array of image paths (max 5)',
+    get() {
+      const value = this.getDataValue('images');
+      // Backward compatibility: convert old string format to array
+      if (typeof value === 'string' && value) return [value];
+      // Handle null/undefined
+      if (!value) return [];
+      // Already an array
+      return value;
+    }
   },
   is_active: {
     type: DataTypes.BOOLEAN,
